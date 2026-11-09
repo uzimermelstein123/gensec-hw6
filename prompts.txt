@@ -1,0 +1,15 @@
+Agent used: Claude Code (model: Claude Sonnet 5.5)
+Project: Page Network Inspector - a CLI that loads a URL in headless Chromium and reports every network request (hosts, IPs, ports, resource types, first- vs third-party, insecure calls), with SSRF protection.
+
+=== PROMPT 1: Build it ===
+Create app.py, a single-file Python 3 CLI called Page Network Inspector. Usage: python app.py https://www.espn.com. Use Playwright (sync API, headless Chromium) to load the page, wait for network idle with a 20-second cap, and record every request. For each one capture host, IP and port (from response.server_addr() where available), scheme, resource type, status and size. Print a clean table report: total requests and bytes, requests by resource type, top 10 hosts with IP, port and request count, and a split of first-party versus third-party hosts. Flag plain-HTTP requests and non-80/443 ports. Add a --json flag, a requirements.txt and short setup notes (pip install, playwright install chromium).
+
+=== PROMPT 2: Harden it ===
+Harden app.py against adversarial input and SSRF. Accept only http and https URLs of at most 2,048 characters, with no embedded credentials. Resolve the hostname first and refuse loopback, private, link-local and cloud-metadata addresses (127.0.0.0/8, 10/8, 172.16/12, 192.168/16, 169.254.0.0/16, ::1 and so on). Also block any browser request to those addresses, so redirects can't reach internal hosts. Cap total requests at 500, run time at 30 seconds, and block file downloads. Strip control and ANSI characters from everything printed, and truncate long strings. Never use eval, exec, shell=True or subprocess. Fail with clear error messages and no stack traces.
+
+=== PROMPT 3: Prove it and make it demo-ready ===
+Write test_app.py with pytest. Cover valid URLs, the URL validator and the SSRF blocklist with these inputs: http://localhost, http://127.0.0.1, http://169.254.169.254, file:///etc/passwd, ftp://x.com, http://user:pass@site.com, an empty string and a 5,000-character URL. Run the tests and fix any failures, then run the tool against https://example.com and show me the output. Finally create prompts.txt with the exact prompts I used in order, an empty screencast_url.txt, and a 5-minute demo script covering: clone, prompts walkthrough, replay, a live run on espn.com, an attack attempt against localhost that gets blocked, and the limitations.
+
+=== NOTES ON WHAT TESTING FOUND (follow-up work done by the agent) ===
+- Testing Prompt 2's output with a real local "internal server" showed a redirect from a public URL to 127.0.0.1 got through: Chromium follows redirects itself without re-running the per-request check. Fix: app.py now follows redirect chains itself, checks every hop, and gives the browser only the final response.
+- Also adjusted: IPv6 column width in the table, and a brand-name heuristic so espncdn.com counts as first-party for espn.com.
